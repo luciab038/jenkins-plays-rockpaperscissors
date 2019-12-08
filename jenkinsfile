@@ -1,0 +1,75 @@
+/****************************************************
+*                                                   *
+* LBenigni: jenkins plays rock-paper-scissors       *
+*                                                   *                                                     
+*****************************************************/
+
+// Define a root path where to store the game
+def workspace = "${JENKINS_HOME}/workspace";
+
+def moves = ['rock', 'paper', 'scissors'];
+
+//initial scores
+def jenkinsScore = 0;
+def score = 0;
+
+pipeline {
+    agent any
+        stages {
+            stage('Get the game from the repo'){
+                steps {
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        dir("${workspace}") {
+                            sh("git clone https://github.com/luciab038/jenkins-plays-rockpaperscissors.git")
+                        }
+                    }
+                }
+            }
+            stage('Lets play'){
+                steps {
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        dir("${workspace}/jenkins-plays-rockpaperscissors") {
+                            script {
+                                echo "Good luck jenkins...";
+                                while(true) {
+                                    def choice = Math.abs( new Random().nextInt() % (3 - 1) ) + 1
+                                    def result = sh(script: "python rockpaperscissors.py ${moves[choice-1]}",  returnStdout: true).trim();
+                                    echo result
+                                    if (result.contains("i won")) {
+                                        score++
+                                    } else if (result.contains("you won")) {
+                                        jenkinsScore++
+                                    }
+                                    echo "SCORES: "
+                                    echo "jenkins: ${jenkinsScore}"
+                                    echo "python: ${score}"
+                                    if (score == 3) {
+                                        currentBuild.result = "FAILURE"
+                                        break
+                                    } else if (jenkinsScore == 3) {
+                                        currentBuild.result = "SUCCESS"
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    post {
+        success { 
+            echo "Jenkinks you won!";
+        }  
+        failure {
+            echo "Jenkins you lost :(";
+        }
+        cleanup {
+            /* clean up the root */
+            dir("${workspace}") {
+                sh("rm -rf jenkins-plays-rockpaperscissors")
+                sh("rm -rf jenkins-plays-rockpaperscissors@tmp")
+            }
+        }
+    }
+}
